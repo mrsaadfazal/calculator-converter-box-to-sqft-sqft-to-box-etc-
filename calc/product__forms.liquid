@@ -1,0 +1,349 @@
+{% if show_payment_button == false or product.selling_plan_groups.size > 0 %}
+  {% assign show_payment_button = false %}
+{% else %}
+  {% assign show_payment_button = true %}
+{% endif %}
+
+<div
+  class="
+    clearfix
+    product_form
+    init
+    smart-payment-button--{{ show_payment_button }}
+    {% if product.variants.size > 1 or product.options.size > 1 %}product_form_options{% endif %}
+    product_form--{{ settings.product_form_style }}
+  "
+  id="product-form-{{ product.id }}"
+  data-product-form
+  data-money-format="{{ shop.money_format | strip_html }}"
+  data-shop-currency="{{ shop.currency }}"
+  data-select-id="product-select-{{ product.id }}{{ product-form }}{{ object.id }}{{ block.id }}"
+  data-enable-state="{% if template contains 'product' %}true{% else %}false{% endif %}"
+  {% if settings.limit_quantity or settings.display_inventory_left %}
+    data-variant-inventory='[{%- for v in product.variants -%}{"id":{{v.id}},"inventory_quantity":{{v.inventory_quantity}},"inventory_management":"{{v.inventory_management}}","inventory_policy":"{{v.inventory_policy}}"}{% if forloop.last == false %},{% endif %}{%- endfor -%}]'
+  {% endif %}
+  data-product-id="{{ product.id }}"
+>
+  {% form 'product', product %} <meta class="sa-data" itemprop="url" content="{{ product.url }}" />
+    <div style="display: none;" data-shop-pay-installments-template>{{ form | payment_terms }}</div>
+
+    {% comment %}
+      Display variant options for a product
+
+      @param product
+      @param selected_variant
+      @param style
+
+      @param enable_swatches
+      @param swatches_shape
+      @param swatches_option_trigger
+      @param swatches_option_style
+      @param swatches_product_page_size
+      @param swatch_colors
+    {% endcomment %}
+    {% assign style = 'select' %}
+    {% if settings.product_form_style == 'radio' %}
+      {% assign style = 'radio' %}
+    {% endif %}
+    {% assign product = product %}
+    {% assign sold_out_options = sold_out_options %}
+    {% assign selected_variant = selected_variant %}
+    {% assign enable_swatches = settings.enable_swatches %}
+    {% assign swatches_shape = settings.swatch_style %}
+    {% assign swatches_option_trigger = 'color' %}
+    {% comment %}Inject @pixelunion/shopify-variants-ui/variant-selection begin{% endcomment %}
+    {% comment %}
+      Display variant options for a product
+    
+      @param product
+      @param selected_variant
+      @param variant_selection_id
+      @param sold_out_options
+      @param style
+    
+      @param enable_swatches
+      @param swatches_shape
+      @param swatches_option_trigger
+      @param swatches_option_style
+      @param swatches_product_page_size
+      @param swatch_colors
+    {% endcomment %}
+    
+    <variant-selection
+      {% if variant_selection_id != blank %}id="{{ variant_selection_id }}"{% endif %}
+      class="variant-selection"
+      product-url="{{ product.url }}.js"
+      variant="{% if selected_variant %}{{ selected_variant.id }}{% else %}not-selected{% endif %}"
+      data-variant-selection
+    >
+      {% if product.has_only_default_variant %}
+        <input
+          class="variant-selection__variants variant-selection__variants--default"
+          name="id"
+          type="hidden"
+          value="{{ product.variants.first.id }}"
+          data-variants
+        >
+      {% else %}
+        <noscript>
+          <style>
+            .variant-selection__variants {
+              display: block !important;
+            }
+          </style>
+        </noscript>
+        <select
+          class="variant-selection__variants"
+          name="id"
+          style="display: none"
+          data-variants
+        >
+          <option
+            value="not-selected"
+            disabled
+            {% if selected_variant == blank %}selected{% endif %}
+          >
+            {{ 'product.variants.choose_variant' | t }}
+          </option>
+          {% for variant in product.variants %}
+            <option
+              {% if selected_variant and selected_variant.id == variant.id %}selected{% endif %}
+              value="{{ variant.id }}"
+              {% unless variant.available %}disabled{% endunless %}
+            >
+              {{ variant.title }} - {{ variant.price | money }}
+            </option>
+          {% endfor %}
+        </select>
+    
+        {% comment %}Inject @pixelunion/shopify-variants-ui/options-selection begin{% endcomment %}
+        {% comment %}
+          Display variant options for a product
+        
+          @param product
+          @param selected_variant
+          @param variant_selection_id
+          @param sold_out_options
+          @param style
+        
+          @param enable_swatches
+          @param swatches_shape
+          @param swatches_option_trigger
+          @param swatches_option_style
+          @param swatches_product_page_size
+          @param swatches_custom_colors
+        {% endcomment %}
+        
+        <options-selection
+          {% if variant_selection_id != blank %}variant-selection="{{ variant_selection_id }}"{% endif %}
+          style="display: none;"
+          {% if sold_out_options == 'disabled' %}disable-unavailable{% endif %}
+          {% if sold_out_options == 'hidden' %}remove-unavailable{% endif %}
+          data-options-selection
+        >
+          <script>
+            (function() {
+              const scriptTag = document.scripts[document.scripts.length - 1];
+              const parentTag = scriptTag.parentNode;
+        
+              parentTag.style.display = '';
+            })()
+          </script>
+        
+          {% for option in product.options_with_values %}
+            {% assign option_index = forloop.index0 %}
+            {% assign show_swatches = false %}
+            {% if enable_swatches %}
+              {%- assign swatches_option_trigger = swatches_option_trigger | strip | downcase -%}
+              {%- assign option_name = option.name | strip | downcase -%}
+        
+              {% if option_name == swatches_option_trigger %}
+                {% assign show_swatches = true %}
+                {% assign swatch_option_key = 'option' | append: forloop.index %}
+              {% endif %}
+            {% endif %}
+        
+            {% if style == 'select' and show_swatches == false %}
+              {%
+                render 'options-select',
+                product: product,
+                selected_variant: selected_variant,
+                option: option,
+                option_index: option_index
+              %}
+            {% elsif style == 'radio' or show_swatches == true %}
+              {%
+                render 'options-radios',
+                product: product,
+                selected_variant: selected_variant,
+                option: option,
+                option_index: option_index,
+                show_swatches: show_swatches,
+                swatch_option_key: swatch_option_key,
+                swatch_size: swatches_product_page_size,
+                swatches_option_style: swatches_option_style
+              %}
+            {% endif %}
+          {% endfor %}
+        </options-selection>
+        {% comment %}Inject @pixelunion/shopify-variants-ui/options-selection end{% endcomment %}
+    
+      {% endif %}
+    </variant-selection>
+    {% comment %}Inject @pixelunion/shopify-variants-ui/variant-selection end{% endcomment %}
+
+	<div id="infiniteoptions-container"></div>
+    {% if product.available %}
+      {% if settings.display_inventory_left %}
+        <p class="items_left">
+          {% if selected_variant.inventory_management != blank and selected_variant.inventory_quantity > 0 %}
+            {% capture items_left_text %}
+              {% if selected_variant.inventory_quantity == 1 %}
+                {{ 'products.product.items_left_count.one' | t }}
+              {% else %}
+                {{ 'products.product.items_left_count.other' | t }}
+              {% endif %}
+            {% endcapture %}
+            {% if selected_variant.inventory_quantity <= settings.inventory_threshold %}
+              {{ selected_variant.inventory_quantity }} {{ items_left_text }}
+            {% endif %}
+          {% endif %}
+        </p>
+      {% endif %}
+  <!--  Spice Product Addons Snippet Starts -->
+
+  <div id="spiceaddonsappid">{% assign product_collections = product.collections | map: "id" %}{% if product_collections %}<input type="hidden" id="sgcollections" value="{{ product_collections | join: ',' }}"/>{% endif %}</div>
+
+  <!--   Spice Product Addons Snippet ends  -->
+      <div class="purchase-details {% if settings.display_product_quantity %}has-quantity-box{% endif %}">
+        {% if settings.display_product_quantity %}
+          <div class="purchase-details__quantity product-quantity-box quantity-box--{{ settings.qty_box_style }}">
+            {% render 'quantity-box' %}
+          </div>
+        {% endif %}
+		<!-- Code By Rabi -->
+        
+        {%if offersSample == true %}
+        <div id="productSample">
+<!--           <input type="text" id="sampleInput" name="properties[sample]" value="no"> -->
+          <button id="productSampleBtn" type="button"> Order Sample for <span> {{product.first_available_variant.price | money}} </span> </button>
+        </div>
+        {% endif %}
+        {% if customBoxCalculatorTag == true %}
+        	{%comment%}{%unless settings.display_product_quantity%}
+                <div style="display: none !important;" class="purchase-details__quantity product-quantity-box quantity-box--{{ settings.qty_box_style }}">
+                  {% render 'quantity-box' %}
+                </div>
+        	{%endunless%}{%endcomment%}
+        	
+        	
+        
+        	<!-- Quantity actual theme code with settings check is commented above -->
+        	<div style="display: none !important;" class="purchase-details__quantity product-quantity-box quantity-box--{{ settings.qty_box_style }}">
+              {% render 'quantity-box' %}
+        	</div>
+        	<!-- //EndOf Quantity actual theme code with settings check is commented above-->
+        	
+            <div class="custom_box_calc custom_box_calc_fields">
+              <p class="topTxt">How much do you need? <a href="#">How to Calculate</a></p>
+              <div class="input_wrapbox">
+                  <div class="input_wrap">
+                      <label>Sq. Ft</label>
+                      <input type="number" id="sqftInput" step="any" placeholder="0" min=1 value={{sqFtPerBoxTagValue}}>
+                  </div>
+                  <p>or</p>
+                  <div class="input_wrap">
+                      <label>Boxes</label>
+                      <input type="number" id="boxInput" step="any" min=1 placeholder="1" value=1>
+                  </div>
+              </div>
+
+              <div class="input_checkbox">
+                  <input type="checkbox" id="waste_reserve" name="waste_reserve" value="waste_reserve" onclick="sqftPercentageBoxSaad()">
+                  <label for="waste_reserve"> Add 10% for waste and reserve</label>
+              </div>
+          	</div>
+        	<p class="ar_top_price custom_box_calc_desc" id="custom_box_calculator_calculated_description"><strong>Total Price: $25.96</strong> at $25.96 per box, or 3.29 sq. ft</p>
+        {% endif %}
+        <!-- //Code By Rabi -->
+        {% comment %} Error message for add to cart action {% endcomment %}
+        <div class="cart-warning"></div>
+        <div class="purchase-details__buttons purchase-details__spb--{{ show_payment_button }}">
+          {% if settings.cart_action == 'reload_page' %}
+            <input type="hidden" name="return_to" value="back" />
+          {% elsif settings.cart_action == 'redirect_cart' %}
+            <input type="hidden" name="return_to" value="{{ routes.cart_url }}" />
+          {% endif %}
+
+          {% capture add_to_cart_label %}{% if collection_handles contains 'pre-order' %}{{ 'collections.general.pre_order' | t }}{% else %}{{ 'products.product.add_to_cart' | t }}{% endif %}{% endcapture %}
+         
+          <button type="{% if settings.cart_action == 'mini_cart' or settings.cart_action == 'drawer' %}button{% else %}submit{% endif %}" name="add" class="button {% if settings.cart_action == 'mini_cart' or settings.cart_action == 'drawer' %} ajax-submit {% endif %}action_button button--add-to-cart {% if show_payment_button %} action_button--secondary {% endif %}" data-label={{ add_to_cart_label | json }} data-add-to-cart-trigger>
+            {% if  settings.button_cart_icon != blank and settings.button_cart_icon_position == 'left' %}
+              {%
+                render 'icon',
+                name: settings.button_cart_icon,
+                icon_class: 'icon--cart'
+              %}
+            {% endif %}
+            <span class="text">{{ add_to_cart_label }}</span>
+            {% if  settings.button_cart_icon != blank and settings.button_cart_icon_position == 'right' %}
+              {%
+                render 'icon',
+                name: settings.button_cart_icon,
+                icon_class: 'icon--cart icon--right'
+              %}
+            {% endif %}
+            <svg x="0px" y="0px" width="32px" height="32px" viewBox="0 0 32 32" class="checkmark">
+              <path fill="none" stroke-width="2" stroke-linecap="square" stroke-miterlimit="10" d="M9,17l3.9,3.9c0.1,0.1,0.2,0.1,0.3,0L23,11"/>
+            </svg>
+          </button>
+          {% if show_payment_button %}
+            {{ form | payment_button }}
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  
+  {% endform %}
+  
+  {% if product.available %}
+    <div id="bread-checkout-btn-product" style="width:100%; height:50px; margin:20px 0px;"></div>
+  {% endif %}
+  
+  <div id="shipping-text">
+
+    {% if product.vendor != 'Infratech Comfort' %}
+    <p> <br> <b> Estimated Arrival:</b> Between <span id="fromDate"></span> and <span id="toDate"></span>.  (To All Contiguous States)</p>
+    {{ '//cdnjs.cloudflare.com/ajax/libs/datejs/1.0/date.min.js' | script_tag }}
+    <script>
+      var fromDate = Date.today().addDays(2);
+
+      var toDate = Date.today().addDays(12);
+
+      document.getElementById('fromDate').innerHTML = fromDate.toString('dddd MMMM dS');
+      document.getElementById('toDate').innerHTML = toDate.toString('dddd MMMM dS');
+    </script>
+    {% endif %}
+
+    {% if product.vendor == 'Infratech Comfort' %} 
+    <p> <br><b> Estimated Arrival:</b> Between <span id="fromDate"></span> and <span id="toDate"></span>.  (To All Contiguous States)</p>
+    {{ '//cdnjs.cloudflare.com/ajax/libs/datejs/1.0/date.min.js' | script_tag }}
+    <script>
+      var fromDate = Date.today().addDays(56);
+
+      var toDate = Date.today().addDays(98);
+
+      document.getElementById('fromDate').innerHTML = fromDate.toString('dddd MMMM dS');
+      document.getElementById('toDate').innerHTML = toDate.toString('dddd MMMM dS');
+    </script>
+    {% endif %} 
+
+    <p><br><b>✔ Same-Day Order Processing</b><br><b>✔ Free Returns for 45 Days</b><br><b>✔ No Restocking Fees</b><br><b>✔ Financing Options Available</b><br>
+
+      <br> Text or call <b><a href="tel:+1-800-614-7411" style="color:#1E88E5; " onMouseOver="this.style.color='#1EC0E5'" onMouseOut="this.style.color='#1E88E5'">800-614-7411</a></b>, start live chat, or email <b><a href="mailto:support@usbathstore.com" style="color:#1E88E5; " onMouseOver="this.style.color='#1EC0E5'" onMouseOut="this.style.color='#1E88E5'" >support@usbathstore.com</a></b>  with any questions. Our team is available to serve you <b>8:00 AM - 11:59 PM </b> ET, 7 days a week.
+      <br> </p>
+  </div>
+
+  <div class="surface-pick-up surface-pick-up--loading" data-surface-pick-up></div>
+  <div class="surface-pick-up__modal" data-surface-pick-up-modal></div>
+</div>
